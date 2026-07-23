@@ -14,7 +14,7 @@ except Exception:
 
 # 2. 页面基础配置
 st.set_page_config(
-    page_title="CarbCam",
+    page_title="NutriSight",
     page_icon="🥗",
     layout="centered",
     initial_sidebar_state="collapsed"
