@@ -7,6 +7,7 @@ import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
+# 1. 基础配置与 API Key 安全获取
 api_key = None
 try:
     if "OPENAI_API_KEY" in st.secrets:
@@ -17,15 +18,12 @@ except Exception:
 if not api_key:
     api_key = os.getenv("OPENAI_API_KEY")
 
-if not api_key:
-    st.error("未检测到 API Key，请在 Streamlit Secrets 或环境变量中配置 OPENAI_API_KEY。")
-    st.stop()
-
-
+# 初始化统一的 OpenAI 客户端 (适配 Moonshot / Kimi 视觉模型)
 client = OpenAI(
-    api_key=api_key,
+    api_key=api_key or "",
     base_url="https://api.moonshot.cn/v1"
 )
+
 # 2. 页面基础配置
 st.set_page_config(
     page_title="CarbCam - 智能膳食营养管理",
@@ -222,15 +220,10 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
         if not st.session_state.is_subscribed:
             st.warning("⚠️ 请先在页面上方的订阅方案中选择试用或购买会员，方可解锁 AI 分析功能！")
         elif not api_key:
-            st.error("❌ 未读取到 API Key！请检查项目根目录下的 `.env` 文件。")
+            st.error("❌ 未检测到 API Key！请检查 Streamlit Secrets 或环境变量。")
         else:
             with st.spinner("AI 正在解析食物营养，请稍候..."):
                 try:
-                    client = OpenAI(
-                        api_key=api_key,
-                        base_url="https://open.bigmodel.cn/api/paas/v4/"
-                    )
-
                     bytes_data = st.session_state.current_image_data.getvalue()
                     base64_image = base64.b64encode(bytes_data).decode("utf-8")
 
@@ -259,8 +252,9 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 {{"calories": 热量数值, "carbs": 碳水g数, "protein": 蛋白质g数, "fat": 脂肪g数, "fiber": 膳食纤维g数}}
 ```"""
 
+                    # 注意：这里改用 Kimi 支持的多模态视觉模型（如果你的账号支持其他视觉模型，可按需调整）
                     response = client.chat.completions.create(
-                        model="glm-4v-flash",
+                        model="moonshot-v1-8k-vision-preview", 
                         messages=[
                             {
                                 "role": "user",
