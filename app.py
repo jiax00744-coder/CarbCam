@@ -212,7 +212,7 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                     # 关键修改：对接 Kimi (Moonshot) 的官方接口地址
                     client = OpenAI(
                         api_key=api_key,
-                        base_url="https://api.moonshot.ai/v1](https://api.moonshot.ai/v1"
+                        base_url="https://api.moonshot.cn"
                     )
                     
                     bytes_data = st.session_state.current_image_data.getvalue()
