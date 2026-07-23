@@ -81,7 +81,7 @@ TRANSLATIONS = {
         "unsub_warn": "⚠️ 请先选择上方订阅方案解锁完整 AI 功能！",
     },
     "繁體中文": {
-        "title": "CarbCam",
+        "title": "NutriSight",
         "sub_title": "選擇最適合你的健康管理方案",
         "sub_desc": "開啟智能熱量與血糖管理，隨時隨地拍照分析。",
         "btn_trial": "開啟 7 天試用",
@@ -123,7 +123,7 @@ TRANSLATIONS = {
         "unsub_warn": "⚠️ 請先選擇上方訂閱方案解鎖完整 AI 功能！",
     },
     "English": {
-        "title": "CarbCam",
+        "title": "NutriSight",
         "sub_title": "Choose the Best Plan for You",
         "sub_desc": "Start smart calorie & blood sugar management anytime, anywhere.",
         "btn_trial": "Start 7-Day Free Trial",
@@ -204,7 +204,7 @@ t = TRANSLATIONS[st.session_state.language]
 top_col1, top_col2 = st.columns([5, 1])
 
 with top_col1:
-    st.markdown("<h1 style='color: #28a745; margin:0; padding:0; font-size: 2.2rem;'>CarbCam</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #28a745; margin:0; padding:0; font-size: 2.2rem;'>NutriSight</h1>", unsafe_allow_html=True)
 
 with top_col2:
     with st.popover(t["settings"]):
@@ -400,11 +400,9 @@ else:
 # ==========================================
 st.subheader(t["section_food"])
 
-# 9.1 新增：日期选择器，支持切换任意历史日期或今天
 log_date_obj = st.date_input(t["select_date"], value=date.today())
 current_date_str = log_date_obj.strftime("%Y-%m-%d")
 
-# 获取选定日期的餐盘数据结构
 if current_date_str not in st.session_state.daily_meal_records:
     st.session_state.daily_meal_records[current_date_str] = {}
 
@@ -497,7 +495,6 @@ else:
                         
                         analysis_result = response.choices[0].message.content
 
-                        # 将记录永久按日期保存入字典
                         st.session_state.daily_meal_records[current_date_str][selected_meal] = analysis_result
                         st.success(f"🎉 【{current_date_str} {selected_meal}】分析成功并已存档！")
                         st.rerun()
@@ -505,7 +502,6 @@ else:
                     except Exception as e:
                         st.error(f"❌ 分析失败: {e}")
 
-# 展示选定日期的已记录餐盘
 if current_day_records:
     st.markdown(f"#### 📋 【{current_date_str}】的餐盘记录列表")
     for m_name, m_report in current_day_records.items():
