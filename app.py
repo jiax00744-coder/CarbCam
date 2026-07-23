@@ -1,6 +1,5 @@
 import os
 import base64
-import json
 import re
 from datetime import datetime, date
 import streamlit as st
@@ -16,13 +15,155 @@ except Exception:
 
 # 2. 页面基础配置 (隐藏默认侧边栏)
 st.set_page_config(
-    page_title="CarbCam - 智能膳食营养管理",
+    page_title="CarbCam",
     page_icon="🥗",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# 3. 初始化全局状态 (Session State)
+# 3. 多语言文本字典映射
+TRANSLATIONS = {
+    "简体中文": {
+        "title": "CarbCam",
+        "sub_title": "选择最适合你的健康管理方案",
+        "sub_desc": "开启智能热量与血糖管理，随时随地拍照分析。",
+        "btn_trial": "开启 7 天试用",
+        "btn_monthly": "订阅月付版",
+        "btn_annual": "订阅年付版",
+        "msg_trial": "🎉 您已成功激活 7 天免费试用，全功能已为您开启！",
+        "msg_monthly": "✅ 感谢订阅月付版，全功能已为您开启！",
+        "msg_annual": "🚀 感谢订阅年付版，全功能已为您开启！",
+        "settings": "⚙️ 系统设置",
+        "set_health": "1. 个人健康信息",
+        "set_lang": "2. 语言设置 / Language",
+        "set_sub": "3. 订阅管理",
+        "save_btn": "保存健康信息",
+        "hi_msg": "Hi, ",
+        "profile_caption": "身高: {h}cm | 体重: {w}kg | 健康状况: {c}",
+        "fill_profile_title": "Hi！请完善你的个人身高体重信息",
+        "fill_profile_desc": "填写后 AI 将结合你的身体状况量身定制膳食建议。",
+        "nickname": "1. 昵称",
+        "height": "2. 身高 (cm)",
+        "weight": "3. 体重 (kg)",
+        "conditions": "4. 身体健康状况及是否有疾病",
+        "save_profile_btn": "保存健康档案",
+        "section_food": "📸 记录你的美食",
+        "meal_type": "餐食分类",
+        "breakfast": "早",
+        "lunch": "中",
+        "dinner": "晚",
+        "img_method": "图片获取方式",
+        "cam": "1. 拍照",
+        "upload": "2. 上传",
+        "food_hint": "食物名称（可选）",
+        "food_placeholder": "输入食物名称以提高识别精确度",
+        "analyze_btn": "开始分析",
+        "section_plan": "📅 制定你的专属健康饮食计划",
+        "start_date": "计划开始日期",
+        "end_date": "计划结束日期",
+        "plan_period": "📅 当前计划周期：**{s}** 至 **{e}**",
+        "section_summary": "📝 每日健康总结与分析",
+        "check_b": "🍳 早餐打卡/记录",
+        "check_l": "🍱 午餐打卡/记录",
+        "check_d": "🥗 晚餐打卡/记录",
+        "gen_summary_btn": "生成今日总结",
+        "unsub_warn": "⚠️ 请先选择上方订阅方案解锁完整 AI 功能！",
+    },
+    "繁體中文": {
+        "title": "CarbCam",
+        "sub_title": "選擇最適合你的健康管理方案",
+        "sub_desc": "開啟智能熱量與血糖管理，隨時隨地拍照分析。",
+        "btn_trial": "開啟 7 天試用",
+        "btn_monthly": "訂閱月付版",
+        "btn_annual": "訂閱年付版",
+        "msg_trial": "🎉 您已成功激活 7 天免費試用，全功能已為您開啟！",
+        "msg_monthly": "✅ 感謝訂閱月付版，全功能已為您開啟！",
+        "msg_annual": "🚀 感謝訂閱年付版，全功能已為您開啟！",
+        "settings": "⚙️ 系統設定",
+        "set_health": "1. 個人健康資訊",
+        "set_lang": "2. 語言設定 / Language",
+        "set_sub": "3. 訂閱管理",
+        "save_btn": "保存健康資訊",
+        "hi_msg": "Hi, ",
+        "profile_caption": "身高: {h}cm | 體重: {w}kg | 健康狀況: {c}",
+        "fill_profile_title": "Hi！請完善你的個人身高體重資訊",
+        "fill_profile_desc": "填寫後 AI 將結合你的身體狀況量身定制膳食建議。",
+        "nickname": "1. 暱稱",
+        "height": "2. 身高 (cm)",
+        "weight": "3. 體重 (kg)",
+        "conditions": "4. 身體健康狀況及是否有疾病",
+        "save_profile_btn": "保存健康檔案",
+        "section_food": "📸 記錄你的美食",
+        "meal_type": "餐食分類",
+        "breakfast": "早",
+        "lunch": "中",
+        "dinner": "晚",
+        "img_method": "圖片獲取方式",
+        "cam": "1. 拍照",
+        "upload": "2. 上傳",
+        "food_hint": "食物名稱（選填）",
+        "food_placeholder": "輸入食物名稱以提高識別精確度",
+        "analyze_btn": "開始分析",
+        "section_plan": "📅 制定你的專屬健康飲食計劃",
+        "start_date": "計劃開始日期",
+        "end_date": "計劃結束日期",
+        "plan_period": "📅 當前計劃週期：**{s}** 至 **{e}**",
+        "section_summary": "📝 每日健康總結與分析",
+        "check_b": "🍳 早餐打卡/記錄",
+        "check_l": "🍱 午餐打卡/記錄",
+        "check_d": "🥗 晚餐打卡/記錄",
+        "gen_summary_btn": "生成今日總結",
+        "unsub_warn": "⚠️ 請先選擇上方訂閱方案解鎖完整 AI 功能！",
+    },
+    "English": {
+        "title": "CarbCam",
+        "sub_title": "Choose the Best Plan for You",
+        "sub_desc": "Start smart calorie & blood sugar management anytime, anywhere.",
+        "btn_trial": "Start 7-Day Free Trial",
+        "btn_monthly": "Subscribe Monthly",
+        "btn_annual": "Subscribe Annually",
+        "msg_trial": "🎉 You have activated the 7-day free trial. All features unlocked!",
+        "msg_monthly": "✅ Thank you for subscribing to Monthly Plan! All features unlocked!",
+        "msg_annual": "🚀 Thank you for subscribing to Annual Plan! All features unlocked!",
+        "settings": "⚙️ Settings",
+        "set_health": "1. Personal Health Profile",
+        "set_lang": "2. Language Settings",
+        "set_sub": "3. Subscription Management",
+        "save_btn": "Save Profile",
+        "hi_msg": "Hi, ",
+        "profile_caption": "Height: {h}cm | Weight: {w}kg | Health Conditions: {c}",
+        "fill_profile_title": "Hi! Please complete your height and weight info",
+        "fill_profile_desc": "AI will provide tailored dietary advice based on your health background.",
+        "nickname": "1. Nickname",
+        "height": "2. Height (cm)",
+        "weight": "3. Weight (kg)",
+        "conditions": "4. Health conditions or allergies",
+        "save_profile_btn": "Save Health Profile",
+        "section_food": "📸 Food Tracker",
+        "meal_type": "Meal Type",
+        "breakfast": "Breakfast",
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "img_method": "Image Source",
+        "cam": "1. Camera",
+        "upload": "2. Upload",
+        "food_hint": "Food Name (Optional)",
+        "food_placeholder": "Enter food name for higher recognition accuracy",
+        "analyze_btn": "Start Analysis",
+        "section_plan": "📅 Your Custom Health Meal Plan",
+        "start_date": "Start Date",
+        "end_date": "End Date",
+        "plan_period": "📅 Plan Period: **{s}** to **{e}**",
+        "section_summary": "📝 Daily Health Summary & Analysis",
+        "check_b": "🍳 Breakfast Logged",
+        "check_l": "🍱 Lunch Logged",
+        "check_d": "🥗 Dinner Logged",
+        "gen_summary_btn": "Generate Daily Summary",
+        "unsub_warn": "⚠️ Please select a subscription plan above to unlock full AI capabilities!",
+    }
+}
+
+# 4. 初始化 Session State
 if "is_subscribed" not in st.session_state:
     st.session_state.is_subscribed = False
 
@@ -31,6 +172,9 @@ if "show_sub_in_settings" not in st.session_state:
 
 if "language" not in st.session_state:
     st.session_state.language = "简体中文"
+
+if "sub_msg" not in st.session_state:
+    st.session_state.sub_msg = ""
 
 if "health_info" not in st.session_state:
     st.session_state.health_info = {
@@ -50,9 +194,12 @@ if "daily_meals_checked" not in st.session_state:
 if "meal_history" not in st.session_state:
     st.session_state.meal_history = {}
 
+# 获取当前全局语言字典
+t = TRANSLATIONS[st.session_state.language]
+
 
 # ==========================================
-# 4. 顶部 Header 栏：左侧标题 + 右侧 ⚙️ 设置弹窗
+# 5. 顶部 Header 栏：左侧标题 + 右侧 ⚙️ 系统设置弹窗
 # ==========================================
 top_col1, top_col2 = st.columns([5, 1])
 
@@ -60,54 +207,52 @@ with top_col1:
     st.markdown("<h1 style='color: #28a745; margin:0; padding:0; font-size: 2.2rem;'>CarbCam</h1>", unsafe_allow_html=True)
 
 with top_col2:
-    # 右上角齿轮设置按钮 (使用 Popover 弹窗形式)
-    with st.popover("⚙️ 设置"):
-        st.markdown("### ⚙️ 系统与个人设置")
+    with st.popover(t["settings"]):
+        st.markdown(f"### {t['settings']}")
         st.divider()
         
-        # 4.1 修改个人健康信息
-        st.markdown("#### 1. 个人健康信息")
+        # 5.1 修改个人健康信息
+        st.markdown(f"#### {t['set_health']}")
         info = st.session_state.health_info
         with st.form("settings_health_form"):
-            set_nick = st.text_input("昵称", value=info["nickname"])
-            set_h = st.number_input("身高 (cm)", value=float(info["height"]))
-            set_w = st.number_input("体重 (kg)", value=float(info["weight"]))
-            set_cond = st.text_area("健康状况", value=info["conditions"])
-            if st.form_submit_button("保存健康信息", type="primary", use_container_width=True):
+            set_nick = st.text_input(t["nickname"], value=info["nickname"])
+            set_h = st.number_input(t["height"], value=float(info["height"]))
+            set_w = st.number_input(t["weight"], value=float(info["weight"]))
+            set_cond = st.text_area(t["conditions"], value=info["conditions"])
+            if st.form_submit_button(t["save_btn"], type="primary", use_container_width=True):
                 st.session_state.health_info = {
                     "nickname": set_nick,
                     "height": set_h,
                     "weight": set_w,
                     "conditions": set_cond
                 }
-                st.success("✅ 健康信息已更新！")
+                st.success("✅ " + t["save_btn"])
                 st.rerun()
 
         st.divider()
 
-        # 4.2 语言切换功能
-        st.markdown("#### 2. 语言设置 / Language")
+        # 5.2 语言设置 (即时切换生效)
+        st.markdown(f"#### {t['set_lang']}")
         selected_lang = st.selectbox(
-            "选择界面语言",
+            "Select Language / 选择语言",
             ["简体中文", "繁體中文", "English"],
             index=["简体中文", "繁體中文", "English"].index(st.session_state.language)
         )
         if selected_lang != st.session_state.language:
             st.session_state.language = selected_lang
-            st.success(f"语言已切换为: {selected_lang}")
             st.rerun()
 
         st.divider()
 
-        # 4.3 订阅栏目
-        st.markdown("#### 3. 会员与订阅管理")
+        # 5.3 订阅管理
+        st.markdown(f"#### {t['set_sub']}")
         if st.session_state.is_subscribed:
-            st.success("👑 您当前已是激活会员状态")
+            st.success("👑 VIP Member Active")
             if st.button("重新显示订阅方案", use_container_width=True):
                 st.session_state.is_subscribed = False
                 st.rerun()
         else:
-            st.info("当前状态：未订阅")
+            st.info("Status: Not Subscribed")
             if st.button("展开订阅方案卡片", type="primary", use_container_width=True):
                 st.session_state.show_sub_in_settings = True
                 st.rerun()
@@ -116,11 +261,11 @@ st.divider()
 
 
 # ==========================================
-# 5. 首页顶部：订阅卡片区域 (未订阅时显示，点击后消失)
+# 6. 首页顶部：订阅卡片（刚进入网站即显示，点击后消失）
 # ==========================================
 if not st.session_state.is_subscribed or st.session_state.show_sub_in_settings:
-    st.markdown("### 选择最适合你的健康管理方案")
-    st.caption("开启智能热量与血糖管理，随时随地拍照分析。")
+    st.markdown(f"### {t['sub_title']}")
+    st.caption(t["sub_desc"])
 
     st.markdown("""
     <style>
@@ -163,9 +308,10 @@ if not st.session_state.is_subscribed or st.session_state.show_sub_in_settings:
             <div class="price-desc">体验 7 天全功能 AI 识图</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("开启 7 天试用", use_container_width=True, key="btn_trial"):
+        if st.button(t["btn_trial"], use_container_width=True, key="btn_trial"):
             st.session_state.is_subscribed = True
             st.session_state.show_sub_in_settings = False
+            st.session_state.sub_msg = t["msg_trial"]
             st.rerun()
 
     with col_sub2:
@@ -176,9 +322,10 @@ if not st.session_state.is_subscribed or st.session_state.show_sub_in_settings:
             <div class="price-desc">灵活按月订阅</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("订阅月付版", use_container_width=True, key="btn_monthly"):
+        if st.button(t["btn_monthly"], use_container_width=True, key="btn_monthly"):
             st.session_state.is_subscribed = True
             st.session_state.show_sub_in_settings = False
+            st.session_state.sub_msg = t["msg_monthly"]
             st.rerun()
 
     with col_sub3:
@@ -190,37 +337,42 @@ if not st.session_state.is_subscribed or st.session_state.show_sub_in_settings:
             <div class="price-desc">超高性价比推荐</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("订阅年付版", type="primary", use_container_width=True, key="btn_annual"):
+        if st.button(t["btn_annual"], type="primary", use_container_width=True, key="btn_annual"):
             st.session_state.is_subscribed = True
             st.session_state.show_sub_in_settings = False
+            st.session_state.sub_msg = t["msg_annual"]
             st.rerun()
 
     st.divider()
 
+# 显示订阅成功精准提示消息
+if st.session_state.sub_msg:
+    st.success(st.session_state.sub_msg)
+
 
 # ==========================================
-# 6. 用户档案与 Greeting 问候
+# 7. 用户档案与 Greeting 问候区
 # ==========================================
 info = st.session_state.health_info
 if not info["nickname"]:
-    st.header("Hi！请完善你的个人身高体重信息")
-    st.caption("填写后 AI 将结合你的身体状况量身定制膳食建议。")
+    st.header(t["fill_profile_title"])
+    st.caption(t["fill_profile_desc"])
 
     with st.form("health_form"):
         col1, col2 = st.columns(2)
         with col1:
-            nickname_in = st.text_input("1. 昵称", value=info["nickname"])
-            height_in = st.number_input("2. 身高 (cm)", min_value=0.0, max_value=250.0, value=float(info["height"]), step=0.5)
+            nickname_in = st.text_input(t["nickname"], value=info["nickname"])
+            height_in = st.number_input(t["height"], min_value=0.0, max_value=250.0, value=float(info["height"]), step=0.5)
         with col2:
-            weight_in = st.number_input("3. 体重 (kg)", min_value=0.0, max_value=300.0, value=float(info["weight"]), step=0.5)
+            weight_in = st.number_input(t["weight"], min_value=0.0, max_value=300.0, value=float(info["weight"]), step=0.5)
         
         conditions_in = st.text_area(
-            "4. 身体健康状况及是否有疾病",
+            t["conditions"],
             value=info["conditions"],
             placeholder="高血压、关注血糖平稳、痛风、无特殊疾病等..."
         )
         
-        submit_profile = st.form_submit_button("保存健康档案", type="primary", use_container_width=True)
+        submit_profile = st.form_submit_button(t["save_profile_btn"], type="primary", use_container_width=True)
         if submit_profile:
             st.session_state.health_info = {
                 "nickname": nickname_in,
@@ -228,35 +380,34 @@ if not info["nickname"]:
                 "weight": weight_in,
                 "conditions": conditions_in
             }
-            st.success("✅ 健康档案已成功保存！")
             st.rerun()
     st.divider()
 else:
-    st.subheader(f"Hi, {info['nickname']}")
-    st.caption(f"身高: {info['height']}cm | 体重: {info['weight']}kg | 健康状况: {info['conditions'] or '无'}")
+    st.subheader(f"{t['hi_msg']}{info['nickname']}")
+    st.caption(t["profile_caption"].format(h=info['height'], w=info['weight'], c=info['conditions'] or '无'))
     st.divider()
 
 
 # ==========================================
-# 7. 核心功能一：📸 记录你的美食 (识图分析)
+# 8. 核心功能一：📸 记录你的美食
 # ==========================================
-st.subheader("📸 记录你的美食")
+st.subheader(t["section_food"])
 
 meal_col, photo_col = st.columns(2)
 with meal_col:
-    selected_meal = st.radio("餐食分类", ["早", "中", "晚"], horizontal=True)
+    selected_meal = st.radio(t["meal_type"], [t["breakfast"], t["lunch"], t["dinner"]], horizontal=True)
 with photo_col:
-    photo_option = st.radio("图片获取方式", ["1. 拍照", "2. 上传"], horizontal=True)
+    photo_option = st.radio(t["img_method"], [t["cam"], t["upload"]], horizontal=True)
 
 input_food_name = st.text_input(
-    "食物名称（可选）",
-    placeholder="输入食物名称以提高识别精确度"
+    t["food_hint"],
+    placeholder=t["food_placeholder"]
 )
 
-if photo_option == "1. 拍照":
-    uploaded_file = st.camera_input("调用相机拍照")
+if photo_option == t["cam"]:
+    uploaded_file = st.camera_input("Take Photo")
 else:
-    uploaded_file = st.file_uploader("从相册选择图片", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
     st.session_state.current_image_data = uploaded_file
@@ -264,13 +415,13 @@ if uploaded_file is not None:
 if "current_image_data" in st.session_state and st.session_state.current_image_data is not None:
     st.image(st.session_state.current_image_data, caption="待分析餐盘", use_container_width=True)
     
-    if st.button("开始分析", type="primary", use_container_width=True):
+    if st.button(t["analyze_btn"], type="primary", use_container_width=True):
         if not st.session_state.is_subscribed:
-            st.warning("⚠️ 请先在页面上方的订阅方案中选择试用或购买会员，方可解锁 AI 分析功能！")
+            st.warning(t["unsub_warn"])
         elif not api_key:
             st.error("❌ 未读取到 API Key！请检查 Secrets 或 .env 配置。")
         else:
-            with st.spinner("AI 正在解析食物营养并生成表格，请稍候..."):
+            with st.spinner("AI 正在解析食物营养并生成表格..."):
                 try:
                     client = OpenAI(
                         api_key=api_key,
@@ -287,24 +438,18 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                         f"健康状况：{info['conditions'] or '无'}"
                     )
                     
-                    meal_map = {"早": "早餐", "中": "午餐", "晚": "晚餐"}
-                    full_meal_name = meal_map.get(selected_meal, selected_meal)
-                    food_hint = f"\n用户输入的食物名称：{input_food_name}" if input_food_name.strip() else ""
-
-                    # 强约束 Markdown 表格输出与全中文表述
-                    prompt_text = f"""你是一个专业的血糖管理与膳食规划师。
+                    # 彻底移除 JSON 输出要求，强约束使用标准 Markdown 表格
+                    prompt_text = f"""你是一个专业的血糖管理与膳食规划师。请使用【{st.session_state.language}】进行回复。
 用户的个人健康档案：【{user_context}】
-本次分析的餐食分类为：【{full_meal_name}】{food_hint}
+本次分析的餐食分类为：【{selected_meal}】\n用户补充说明：{input_food_name}
 
-请对这张照片中的食物进行深入分析，严格按顺序输出以下内容：
+请严格按照以下格式输出：
 1. 识别食物名称与大概分量；
-2. 强制使用 Markdown 格式生成一个【营养成分分析表格】，表格列名必须为：| 营养成分 | 预估含量 | 健康级别/评估 |；
-   表格必须包含的行：热量(千卡)、碳水化合物(克)、蛋白质(克)、脂肪(克)、膳食纤维(克)。
-3. 结合【{full_meal_name}】餐食特点及用户健康状况，给出合理的进食建议；
-4. 请在全篇回复的最末尾，附带一段纯 JSON 格式的数据（必须用 ```json ... ``` 包裹），格式如下：
-```json
-{{"热量(千卡)": 数值, "碳水化合物(克)": 数值, "蛋白质(克)": 数值, "脂肪(克)": 数值, "膳食纤维(克)": 数值}}
-```"""
+2. 强制使用 Markdown 格式输出【营养成分分析表格】，包含以下列：
+   | 营养成分 | 预估含量 | 健康级别/评估 |
+   包含项目：热量(千卡)、碳水化合物(克)、蛋白质(克)、脂肪(克)、膳食纤维(克)；
+3. 结合用户健康状况给出合理的进食建议；
+（切勿包含任何 JSON 或代码块结构）。"""
 
                     response = client.chat.completions.create(
                         model="glm-4v-flash",
@@ -324,15 +469,12 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                     )
                     
                     analysis_result = response.choices[0].message.content
-                    
-                    # 过滤纯 JSON 部分，确保页面展示美观的 Markdown 表格
-                    clean_markdown = re.sub(r'```json\s*\{.*?\}\s*```', '', analysis_result, flags=re.DOTALL)
 
                     st.success("🎉 分析完成！")
                     st.markdown("### 📋 专属膳食分析报告")
-                    st.markdown(clean_markdown)
+                    st.markdown(analysis_result)
                     
-                    st.session_state.meal_history[full_meal_name] = clean_markdown
+                    st.session_state.meal_history[selected_meal] = analysis_result
                     
                 except Exception as e:
                     st.error(f"❌ 分析失败，错误信息: {e}")
@@ -341,92 +483,81 @@ st.divider()
 
 
 # ==========================================
-# 8. 核心功能二：📅 制定你的专属健康饮食计划 & 每日打卡
+# 9. 核心功能二：📅 制定你的专属健康饮食计划
 # ==========================================
-st.subheader("📅 制定你的专属健康饮食计划")
-st.caption("选择计划周期，记录每日打卡并生成智能诊断。")
+st.subheader(t["section_plan"])
 
-# 8.1 日期选择功能（从某日到某日）
 date_col1, date_col2 = st.columns(2)
 with date_col1:
-    start_date = st.date_input("计划开始日期", value=date.today())
+    start_date = st.date_input(t["start_date"], value=date.today())
 with date_col2:
-    end_date = st.date_input("计划结束日期", value=date.today())
+    end_date = st.date_input(t["end_date"], value=date.today())
 
-st.info(f"📅 当前计划周期：**{start_date.strftime('%Y-%m-%d')}** 至 **{end_date.strftime('%Y-%m-%d')}**")
+st.info(t["plan_period"].format(s=start_date.strftime('%Y-%m-%d'), e=end_date.strftime('%Y-%m-%d')))
+st.divider()
 
-# 8.2 每日用餐勾选记录
-st.markdown("#### 🥗 今日用餐打卡记录")
-st.caption("请勾选你今天已经进食的餐次：")
 
-c_b = st.checkbox("🍳 早餐", value=st.session_state.daily_meals_checked["breakfast"])
-c_l = st.checkbox("🍱 午餐", value=st.session_state.daily_meals_checked["lunch"])
-c_d = st.checkbox("🥗 晚餐", value=st.session_state.daily_meals_checked["dinner"])
+# ==========================================
+# 10. 核心功能三：📝 每日健康总结与分析（全勾选方可解锁生成）
+# ==========================================
+st.subheader(t["section_summary"])
+st.caption("请确认今日早餐、午餐、晚餐均已记录/勾选完成：")
+
+cb1, cb2, cb3 = st.columns(3)
+with cb1:
+    c_b = st.checkbox(t["check_b"], value=st.session_state.daily_meals_checked["breakfast"])
+with cb2:
+    c_l = st.checkbox(t["check_l"], value=st.session_state.daily_meals_checked["lunch"])
+with cb3:
+    c_d = st.checkbox(t["check_d"], value=st.session_state.daily_meals_checked["dinner"])
 
 st.session_state.daily_meals_checked["breakfast"] = c_b
 st.session_state.daily_meals_checked["lunch"] = c_l
 st.session_state.daily_meals_checked["dinner"] = c_d
 
+# 动态解锁逻辑：只有当三餐全部勾选时，才出现生成今日总结按钮
+all_checked = c_b and c_l and c_d
 
-# ==========================================
-# 9. 核心功能三：📝 每日总结与智能漏餐建议
-# ==========================================
-st.markdown("#### 📝 每日健康总结与分析")
-
-if st.button("生成今日总结", type="primary", use_container_width=True):
-    if not api_key:
-        st.error("❌ 未读取到 API Key，请先配置 Key！")
-    else:
-        with st.spinner("AI 正在根据你的今日用餐打卡情况生成总结与建议..."):
-            try:
-                client = OpenAI(
-                    api_key=api_key,
-                    base_url="https://open.bigmodel.cn/api/paas/v4/"
-                )
-                
-                chk = st.session_state.daily_meals_checked
-                user_info = st.session_state.health_info
-                
-                # 收集漏餐情况
-                missed_meals = []
-                eaten_meals = []
-                if not chk["breakfast"]:
-                    missed_meals.append("早餐")
-                else:
-                    eaten_meals.append("早餐")
+if all_checked:
+    st.write("")
+    if st.button(t["gen_summary_btn"], type="primary", use_container_width=True):
+        if not api_key:
+            st.error("❌ 未读取到 API Key！")
+        else:
+            with st.spinner("AI 正在根据你今日的餐盘记录分析健康总结..."):
+                try:
+                    client = OpenAI(
+                        api_key=api_key,
+                        base_url="https://open.bigmodel.cn/api/paas/v4/"
+                    )
                     
-                if not chk["lunch"]:
-                    missed_meals.append("午餐")
-                else:
-                    eaten_meals.append("午餐")
+                    user_info = st.session_state.health_info
+                    history = st.session_state.meal_history
                     
-                if not chk["dinner"]:
-                    missed_meals.append("晚餐")
-                else:
-                    eaten_meals.append("晚餐")
+                    history_str = "\n".join([f"【{k}】分析记录:\n{v}" for k, v in history.items()]) if history else "今日用户未进行餐盘拍照识别，全靠自行打卡。"
 
-                summary_prompt = f"""你是一个专业的健康管理师。
-用户的健康档案：昵称【{user_info['nickname'] or '未填写'}】，身高【{user_info['height']}cm】，体重【{user_info['weight']}kg】，健康状况【{user_info['conditions'] or '无'}】。
+                    summary_prompt = f"""你是一个专业的健康管理师。请用【{st.session_state.language}】撰写。
+用户健康档案：昵称【{user_info['nickname']}】，身高【{user_info['height']}cm】，体重【{user_info['weight']}kg】，健康状况【{user_info['conditions']}】。
 
-今日用户的用餐打卡情况如下：
-- 已进食：{', '.join(eaten_meals) if eaten_meals else '无'}
-- 未勾选/未进食：{', '.join(missed_meals) if missed_meals else '无（三餐均正常进食）'}
+今日用户的餐盘识别历史与打卡信息如下：
+{history_str}
 
-请为用户生成一份【今日总结与建议】：
-1. 评判今日的整体进食规律性；
-2. 【重点要求】：如果用户有漏吃的餐次（如未吃{', '.join(missed_meals)}），请严厉且温柔地指出“绝对不能不吃{'/'.join(missed_meals)}”的原因（包括对血糖、新陈代谢和身体健康的损害）；
-3. 针对未吃的餐次，给出具体的补充食谱建议（推荐具体的早餐、午餐或晚餐食物组合）；
-4. 针对明天给出合理的饮食规划建议。"""
+请结合用户拍照识别过的食物数据与个人身体状况，生成一份【今日综合健康总结与建议】：
+1. 评估今日整体摄入的热量、碳水与蛋白质是否均衡；
+2. 如果记录中发现用户有漏餐、摄入单一或营养结构不合理（如缺乏蔬菜纤维、碳水超标），请明确严谨地指出危害；
+3. 给出针对明日的个性化饮食改进方案与食谱推荐。"""
 
-                summary_res = client.chat.completions.create(
-                    model="glm-4v-flash",
-                    messages=[{"role": "user", "content": summary_prompt}],
-                    max_tokens=1000
-                )
-                
-                st.success("🎉 今日总结生成成功！")
-                st.markdown("---")
-                st.markdown(summary_res.choices[0].message.content)
-                
-            except Exception as e:
-                st.error(f"❌ 总结生成失败: {e}")
+                    summary_res = client.chat.completions.create(
+                        model="glm-4v-flash",
+                        messages=[{"role": "user", "content": summary_prompt}],
+                        max_tokens=1000
+                    )
+                    
+                    st.success("🎉 今日总结生成成功！")
+                    st.markdown("---")
+                    st.markdown(summary_res.choices[0].message.content)
+                    
+                except Exception as e:
+                    st.error(f"❌ 总结生成失败: {e}")
+else:
+    st.info("💡 请将【早餐】、【午餐】、【晚餐】三个勾选项全部确认勾选后，即可解锁“生成今日总结”按钮。")
