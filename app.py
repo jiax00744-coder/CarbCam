@@ -252,9 +252,8 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 {{"calories": 热量数值, "carbs": 碳水g数, "protein": 蛋白质g数, "fat": 脂肪g数, "fiber": 膳食纤维g数}}
 ```"""
 
-                    # 注意：这里改用 Kimi 支持的多模态视觉模型（如果你的账号支持其他视觉模型，可按需调整）
                     response = client.chat.completions.create(
-                        model="moonshot-v1-8k-vision-preview", 
+                        model="moonshot-v1-8k", 
                         messages=[
                             {
                                 "role": "user",
