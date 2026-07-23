@@ -18,7 +18,7 @@ except Exception:
 if not api_key:
     api_key = os.getenv("OPENAI_API_KEY")
 
-# 初始化统一的 OpenAI 客户端 (适配 Moonshot / Kimi 视觉模型)
+# 初始化 OpenAI 客户端
 client = OpenAI(
     api_key=api_key or "",
     base_url="https://api.moonshot.cn/v1"
@@ -33,7 +33,7 @@ st.set_page_config(
 
 # 3. 初始化全局状态 (Session State)
 if "is_subscribed" not in st.session_state:
-    st.session_state.is_subscribed = False  # 默认未订阅/未激活试用
+    st.session_state.is_subscribed = False
 
 if "health_info" not in st.session_state:
     st.session_state.health_info = {
@@ -56,7 +56,6 @@ st.title("CarbCam")
 st.markdown("### 选择最适合你的健康管理方案")
 st.caption("开启智能卡路里与血糖管理，随时随地拍照分析。")
 
-# 自定义 CSS 样式美化三个价格卡片及右上角绿色标签
 st.markdown("""
 <style>
 .pricing-container {
@@ -114,7 +113,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 渲染三个纵向长方形卡片 (使用 3 列布局)
 col_sub1, col_sub2, col_sub3 = st.columns(3)
 
 with col_sub1:
@@ -157,7 +155,7 @@ with col_sub3:
 st.divider()
 
 # ==========================================
-# 5. 界面下方：原有的用户个人档案与核心功能区
+# 5. 界面下方：用户个人档案与核心功能区
 # ==========================================
 st.header("Hi！请完善你的个人身高体重信息")
 st.caption("填写后 AI 将结合你的身体状况量身定制膳食建议。")
@@ -204,11 +202,10 @@ input_food_name = st.text_input(
     placeholder="输入食物名称以提高识别精确度（如：红烧肉盖码饭、无糖拿铁）"
 )
 
-# 图片获取方式
 if photo_option == "1. 拍照":
     uploaded_file = st.camera_input("调用相机拍照")
 else:
-    uploaded_file = st.file_uploader("从相册选择图片", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("从相册选择图片", type=["jpg", "jpeg", "png", "webp"])
 
 if uploaded_file is not None:
     st.session_state.current_image_data = uploaded_file
@@ -252,8 +249,9 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 {{"calories": 热量数值, "carbs": 碳水g数, "protein": 蛋白质g数, "fat": 脂肪g数, "fiber": 膳食纤维g数}}
 ```"""
 
+                    # 核心修改：使用官方正确的视觉模型名称，并确保 content 格式为标准数组结构
                     response = client.chat.completions.create(
-                        model="moonshot-v1-8k", 
+                        model="moonshot-v1-8k-vision-preview",
                         messages=[
                             {
                                 "role": "user",
