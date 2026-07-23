@@ -13,7 +13,7 @@ api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 # 2. 页面基础配置
 st.set_page_config(
     page_title="CarbCam - 智能膳食营养管理",
-    page_icon="🥗",
+    page_icon="📷",
     layout="centered"
 )
 
@@ -39,7 +39,7 @@ if "meal_history" not in st.session_state:
 # ==========================================
 # 4. 页面顶部：SaaS 订阅与定价展示模块
 # ==========================================
-st.title("🥑 CarbCam")
+st.title("CarbCam")
 st.markdown("### 选择最适合你的健康管理方案")
 st.caption("开启智能卡路里与血糖管理，随时随地拍照分析。")
 
@@ -212,7 +212,7 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                     # 关键修改：对接 Kimi (Moonshot) 的官方接口地址
                     client = OpenAI(
                         api_key=api_key,
-                        base_url="https://api.moonshot.cn/v1"
+                        base_url="https://api.moonshot.ai/v1](https://api.moonshot.ai/v1"
                     )
                     
                     bytes_data = st.session_state.current_image_data.getvalue()
@@ -245,7 +245,7 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 
                     response = client.chat.completions.create(
                         # 关键修改：使用 Kimi 支持视觉的多模态模型
-                        model="moonshot-v1-8k-vision-preview",
+                        model="kimi-k3",
                         messages=[
                             {
                                 "role": "user",
