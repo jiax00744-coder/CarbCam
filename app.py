@@ -7,7 +7,20 @@ import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
-api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+api_key = None
+try:
+    if "OPENAI_API_KEY" in st.secrets:
+        api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
+
+if not api_key:
+    api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    st.error("未检测到 API Key，请在 Streamlit Secrets 或环境变量中配置 OPENAI_API_KEY。")
+    st.stop()
+
 
 client = OpenAI(
     api_key=api_key,
