@@ -7,9 +7,8 @@ import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# 1. 加载环境变量 (.env)
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+# 1. 优先从 Streamlit 云端 Secrets 读取，如果没有（在本地），则从环境变量/.env读取
+api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 # 2. 页面基础配置
 st.set_page_config(
@@ -206,13 +205,14 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
         if not st.session_state.is_subscribed:
             st.warning("⚠️ 请先在页面上方的订阅方案中选择试用或购买会员，方可解锁 AI 分析功能！")
         elif not api_key:
-            st.error("❌ 未读取到 API Key！请检查项目根目录下的 `.env` 文件。")
+            st.error("❌ 未读取到 API Key！请检查 Streamlit 后台的 Secrets 配置。")
         else:
             with st.spinner("AI 正在解析食物营养，请稍候..."):
                 try:
+                    # 关键修改：对接 Kimi (Moonshot) 的官方接口地址
                     client = OpenAI(
                         api_key=api_key,
-                        base_url="https://open.bigmodel.cn/api/paas/v4/"
+                        base_url="https://api.moonshot.cn/v1"
                     )
                     
                     bytes_data = st.session_state.current_image_data.getvalue()
@@ -244,7 +244,8 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 ```"""
 
                     response = client.chat.completions.create(
-                        model="glm-4v-flash",
+                        # 关键修改：使用 Kimi 支持视觉的多模态模型
+                        model="moonshot-v1-8k-vision-preview",
                         messages=[
                             {
                                 "role": "user",
