@@ -213,10 +213,10 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
         else:
             with st.spinner("AI 正在解析食物营养，请稍候..."):
                 try:
-                    # 对接 Kimi (Moonshot) 官方 API 地址
+                    # 使用智谱 AI 的 OpenAI 兼容接口，完美支持图片识别
                     client = OpenAI(
                         api_key=api_key,
-                        base_url="https://api.moonshot.cn/v1"
+                        base_url="https://open.bigmodel.cn/api/paas/v4/"
                     )
                     
                     bytes_data = st.session_state.current_image_data.getvalue()
@@ -247,9 +247,9 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 {{"calories": 热量数值, "carbs": 碳水g数, "protein": 蛋白质g数, "fat": 脂肪g数, "fiber": 膳食纤维g数}}
 ```"""
 
-                    # 指定模型为 kimi-k3
+                    # 使用智谱专用的免费多模态大模型 glm-4v-flash
                     response = client.chat.completions.create(
-                        model="moonshot-v1-8k",
+                        model="glm-4v-flash",
                         messages=[
                             {
                                 "role": "user",
