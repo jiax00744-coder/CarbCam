@@ -7,10 +7,12 @@ import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# 1. 优先从 Streamlit Secrets 读取，读取不到则从本地 .env 读取（兼容本地与云端）
+# 1. 优先从 Streamlit Secrets 读取，如果在本地没有 secrets.toml，则退回读取本地 .env 文件
 load_dotenv()
-api_key = st.secrets.get("OPENAI_API_KEY") if hasattr(st, "secrets") and "OPENAI_API_KEY" in st.secrets else os.getenv(
-    "OPENAI_API_KEY")
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    api_key = os.getenv("OPENAI_API_KEY")
 
 # 2. 页面基础配置
 st.set_page_config(
@@ -36,6 +38,7 @@ if "meal_nutrition" not in st.session_state:
 
 if "meal_history" not in st.session_state:
     st.session_state.meal_history = {}
+
 
 # ==========================================
 # 4. 页面顶部：SaaS 订阅与定价展示模块
@@ -154,18 +157,16 @@ with st.form("health_form"):
     col1, col2 = st.columns(2)
     with col1:
         nickname = st.text_input("1. 昵称", value=st.session_state.health_info["nickname"])
-        height = st.number_input("2. 身高 (cm)", min_value=0.0, max_value=250.0,
-                                 value=float(st.session_state.health_info["height"]), step=0.5)
+        height = st.number_input("2. 身高 (cm)", min_value=0.0, max_value=250.0, value=float(st.session_state.health_info["height"]), step=0.5)
     with col2:
-        weight = st.number_input("3. 体重 (kg)", min_value=0.0, max_value=300.0,
-                                 value=float(st.session_state.health_info["weight"]), step=0.5)
-
+        weight = st.number_input("3. 体重 (kg)", min_value=0.0, max_value=300.0, value=float(st.session_state.health_info["weight"]), step=0.5)
+    
     conditions = st.text_area(
         "4. 身体健康状况及是否有疾病",
         value=st.session_state.health_info["conditions"],
         placeholder="高血压、关注血糖平稳、痛风、无特殊疾病等..."
     )
-
+    
     submit_profile = st.form_submit_button("保存健康档案", type="primary", use_container_width=True)
     if submit_profile:
         st.session_state.health_info = {
@@ -183,7 +184,7 @@ st.subheader("📸 记录你的美食")
 
 meal_col, photo_col = st.columns(2)
 with meal_col:
-    selected_meal = st.radio("餐食", ["早", "中", "腕"], horizontal=True)
+    selected_meal = st.radio("餐食", ["早", "中", "晚"], horizontal=True)
 with photo_col:
     photo_option = st.radio("图片获取方式", ["1. 拍照", "2. 上传"], horizontal=True)
 
@@ -203,7 +204,7 @@ if uploaded_file is not None:
 
 if "current_image_data" in st.session_state and st.session_state.current_image_data is not None:
     st.image(st.session_state.current_image_data, caption="待分析餐盘", use_container_width=True)
-
+    
     if st.button("开始分析", type="primary", use_container_width=True):
         if not st.session_state.is_subscribed:
             st.warning("⚠️ 请先在页面上方的订阅方案中选择试用或购买会员，方可解锁 AI 分析功能！")
@@ -217,10 +218,10 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                         api_key=api_key,
                         base_url="https://api.moonshot.cn/v1"
                     )
-
+                    
                     bytes_data = st.session_state.current_image_data.getvalue()
                     base64_image = base64.b64encode(bytes_data).decode("utf-8")
-
+                    
                     info = st.session_state.health_info
                     user_context = (
                         f"昵称：{info['nickname'] or '未填写'}，"
@@ -228,7 +229,7 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                         f"体重：{info['weight']}kg，"
                         f"健康状况：{info['conditions'] or '无'}"
                     )
-
+                    
                     meal_map = {"早": "早餐", "中": "午餐", "晚": "晚餐"}
                     full_meal_name = meal_map.get(selected_meal, selected_meal)
                     food_hint = f"\n用户输入的食物名称：{input_food_name}" if input_food_name.strip() else ""
@@ -246,8 +247,9 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 {{"calories": 热量数值, "carbs": 碳水g数, "protein": 蛋白质g数, "fat": 脂肪g数, "fiber": 膳食纤维g数}}
 ```"""
 
+                    # 指定模型为 kimi-k3
                     response = client.chat.completions.create(
-                        model="moonshot-v1-8k",
+                        model="kimi-k3",
                         messages=[
                             {
                                 "role": "user",
@@ -262,9 +264,9 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                         ],
                         max_tokens=1000,
                     )
-
+                    
                     analysis_result = response.choices[0].message.content
-
+                    
                     json_match = re.search(r'```json\s*(\{.*?\})\s*```', analysis_result, re.DOTALL)
                     if json_match:
                         try:
@@ -285,8 +287,8 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
                     st.success("🎉 分析完成！")
                     st.markdown("### 📋 专属膳食分析报告")
                     st.markdown(clean_markdown)
-
+                    
                     st.session_state.meal_history[full_meal_name] = clean_markdown
-
+                    
                 except Exception as e:
                     st.error(f"❌ 分析失败，错误信息: {e}")
