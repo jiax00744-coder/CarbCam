@@ -39,7 +39,7 @@ def calculate_bmi(height_cm, weight_kg):
 # 4. 多语言字典映射
 TRANSLATIONS = {
     "简体中文": {
-        "title": "CarbCam",
+        "title": "NutriSight",
         "sub_title": "选择最适合你的健康管理方案",
         "sub_desc": "开启智能热量与血糖管理，随时随地拍照分析。",
         "btn_trial": "开启 7 天试用",
