@@ -249,7 +249,7 @@ if "current_image_data" in st.session_state and st.session_state.current_image_d
 
                     # 指定模型为 kimi-k3
                     response = client.chat.completions.create(
-                        model="kimi-k3",
+                        model="moonshot-v1-8k",
                         messages=[
                             {
                                 "role": "user",
