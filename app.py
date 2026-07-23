@@ -7,6 +7,8 @@ import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
+api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+
 # 1. 加载环境变量 (.env)
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
