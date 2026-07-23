@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 
 api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-# 1. 加载环境变量 (.env)
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-
+client = OpenAI(
+    api_key=api_key,
+    base_url="https://api.moonshot.cn/v1"
+)
 # 2. 页面基础配置
 st.set_page_config(
     page_title="CarbCam - 智能膳食营养管理",
