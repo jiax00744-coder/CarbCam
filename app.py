@@ -1,19 +1,18 @@
 import os
 import base64
-import re
 from datetime import datetime, date
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# 1. 优先读取 Secrets，没有则读取 .env
+# 1. 读取 Secrets 或 .env
 load_dotenv()
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
 except Exception:
     api_key = os.getenv("OPENAI_API_KEY")
 
-# 2. 页面基础配置 (隐藏默认侧边栏)
+# 2. 页面基础配置
 st.set_page_config(
     page_title="CarbCam",
     page_icon="🥗",
@@ -21,7 +20,23 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 3. 多语言文本字典映射
+# 3. 辅助函数：计算 BMI
+def calculate_bmi(height_cm, weight_kg):
+    if height_cm <= 0 or weight_kg <= 0:
+        return 0.0, "未填写完整"
+    height_m = height_cm / 100.0
+    bmi = round(weight_kg / (height_m ** 2), 1)
+    if bmi < 18.5:
+        category = "偏瘦 (Underweight)"
+    elif 18.5 <= bmi < 24.0:
+        category = "正常 (Normal)"
+    elif 24.0 <= bmi < 28.0:
+        category = "偏胖 (Overweight)"
+    else:
+        category = "肥胖 (Obese)"
+    return bmi, category
+
+# 4. 多语言字典映射
 TRANSLATIONS = {
     "简体中文": {
         "title": "CarbCam",
@@ -39,15 +54,16 @@ TRANSLATIONS = {
         "set_sub": "3. 订阅管理",
         "save_btn": "保存健康信息",
         "hi_msg": "Hi, ",
-        "profile_caption": "身高: {h}cm | 体重: {w}kg | 健康状况/人群: {c}",
+        "profile_caption": "身高: {h}cm | 体重: {w}kg | BMI: {bmi} ({bmi_cat}) | 健康状况: {c}",
         "fill_profile_title": "Hi！请完善你的个人身高体重与健康信息",
-        "fill_profile_desc": "填写后 AI 将结合你的身体状况（如糖尿病、孕期、高血压等）量身定制定制建议。",
+        "fill_profile_desc": "填写后 AI 将结合你的 BMI、GI/升糖指数及特殊身体状况（糖尿病、孕期等）量身定制建议。",
         "nickname": "1. 昵称",
         "height": "2. 身高 (cm)",
         "weight": "3. 体重 (kg)",
         "conditions": "4. 身体健康状况/特殊人群（如：糖尿病、孕妇、高血压等）",
         "save_profile_btn": "保存健康档案",
         "section_food": "📸 记录你的美食",
+        "select_date": "选择记录日期",
         "meal_type": "餐食分类",
         "img_method": "图片获取方式",
         "cam": "1. 拍照",
@@ -61,7 +77,7 @@ TRANSLATIONS = {
         "end_date": "计划结束日期",
         "plan_period": "📅 当前计划周期：**{s}** 至 **{e}** | 目标：**{t}**",
         "section_summary": "📝 每日健康总结与分析",
-        "gen_summary_btn": "生成今日总结与计划推进分析",
+        "gen_summary_btn": "生成选定日期的总结与计划推进分析",
         "unsub_warn": "⚠️ 请先选择上方订阅方案解锁完整 AI 功能！",
     },
     "繁體中文": {
@@ -80,15 +96,16 @@ TRANSLATIONS = {
         "set_sub": "3. 訂閱管理",
         "save_btn": "保存健康資訊",
         "hi_msg": "Hi, ",
-        "profile_caption": "身高: {h}cm | 體重: {w}kg | 健康狀況/人群: {c}",
+        "profile_caption": "身高: {h}cm | 體重: {w}kg | BMI: {bmi} ({bmi_cat}) | 健康狀況: {c}",
         "fill_profile_title": "Hi！請完善你的個人身高體重與健康資訊",
-        "fill_profile_desc": "填寫後 AI 將結合你的身體狀況（如糖尿病、孕期、高血壓等）量身定制建議。",
+        "fill_profile_desc": "填寫後 AI 將結合你的 BMI、GI/升糖指數及特殊身體狀況（糖尿病、孕期等）量身定制建議。",
         "nickname": "1. 暱稱",
         "height": "2. 身高 (cm)",
         "weight": "3. 體重 (kg)",
         "conditions": "4. 身體健康狀況/特殊人群（如：糖尿病、孕婦、高血壓等）",
         "save_profile_btn": "保存健康檔案",
         "section_food": "📸 記錄你的美食",
+        "select_date": "選擇記錄日期",
         "meal_type": "餐食分類",
         "img_method": "圖片獲取方式",
         "cam": "1. 拍照",
@@ -102,7 +119,7 @@ TRANSLATIONS = {
         "end_date": "計劃結束日期",
         "plan_period": "📅 當前計劃週期：**{s}** 至 **{e}** | 目標：**{t}**",
         "section_summary": "📝 每日健康總結與分析",
-        "gen_summary_btn": "生成今日總結與計劃推進分析",
+        "gen_summary_btn": "生成選定日期的總結與計劃推進分析",
         "unsub_warn": "⚠️ 請先選擇上方訂閱方案解鎖完整 AI 功能！",
     },
     "English": {
@@ -121,15 +138,16 @@ TRANSLATIONS = {
         "set_sub": "3. Subscription Management",
         "save_btn": "Save Profile",
         "hi_msg": "Hi, ",
-        "profile_caption": "Height: {h}cm | Weight: {w}kg | Health Status: {c}",
+        "profile_caption": "Height: {h}cm | Weight: {w}kg | BMI: {bmi} ({bmi_cat}) | Health Status: {c}",
         "fill_profile_title": "Hi! Please complete your health info",
-        "fill_profile_desc": "AI will provide highly specific advice based on your profile (e.g. Diabetes, Pregnancy, Hypertension).",
+        "fill_profile_desc": "AI will provide tailored advice based on your BMI, GI (Glycemic Index), and specific conditions.",
         "nickname": "1. Nickname",
         "height": "2. Height (cm)",
         "weight": "3. Weight (kg)",
         "conditions": "4. Health Conditions (e.g., Diabetes, Pregnant, Hypertension)",
         "save_profile_btn": "Save Health Profile",
         "section_food": "📸 Food Tracker",
+        "select_date": "Select Log Date",
         "meal_type": "Meal Type",
         "img_method": "Image Source",
         "cam": "1. Camera",
@@ -143,12 +161,12 @@ TRANSLATIONS = {
         "end_date": "End Date",
         "plan_period": "📅 Period: **{s}** to **{e}** | Goal: **{t}**",
         "section_summary": "📝 Daily Health Summary & Progress",
-        "gen_summary_btn": "Generate Daily Progress Summary",
+        "gen_summary_btn": "Generate Daily Summary for Selected Date",
         "unsub_warn": "⚠️ Please select a subscription plan above to unlock full AI capabilities!",
     }
 }
 
-# 4. 初始化 Session State
+# 5. 初始化 Session State
 if "is_subscribed" not in st.session_state:
     st.session_state.is_subscribed = False
 
@@ -172,15 +190,16 @@ if "health_info" not in st.session_state:
 if "health_goal" not in st.session_state:
     st.session_state.health_goal = "控糖平稳/血糖管理"
 
-# 餐盘历史记录字典，结构: {"早餐": "分析报告文本", "午餐": "分析报告文本", "晚餐": "分析报告文本"}
-if "meal_records" not in st.session_state:
-    st.session_state.meal_records = {}
+# 按日期隔离存储的历史餐盘字典：
+# 结构: {"2026-07-23": {"早餐": "报告内容...", "午餐": "报告内容..."}, "2026-07-24": {...}}
+if "daily_meal_records" not in st.session_state:
+    st.session_state.daily_meal_records = {}
 
 t = TRANSLATIONS[st.session_state.language]
 
 
 # ==========================================
-# 5. 顶部 Header 栏：左侧标题 + 右侧 ⚙️ 系统设置弹窗
+# 6. 顶部 Header 栏：左侧标题 + 右侧 ⚙️ 系统设置弹窗
 # ==========================================
 top_col1, top_col2 = st.columns([5, 1])
 
@@ -192,7 +211,7 @@ with top_col2:
         st.markdown(f"### {t['settings']}")
         st.divider()
         
-        # 5.1 修改个人健康信息
+        # 6.1 修改个人健康信息
         st.markdown(f"#### {t['set_health']}")
         info = st.session_state.health_info
         with st.form("settings_health_form"):
@@ -212,7 +231,7 @@ with top_col2:
 
         st.divider()
 
-        # 5.2 语言设置
+        # 6.2 语言设置
         st.markdown(f"#### {t['set_lang']}")
         selected_lang = st.selectbox(
             "Select Language / 选择语言",
@@ -225,7 +244,7 @@ with top_col2:
 
         st.divider()
 
-        # 5.3 订阅管理
+        # 6.3 订阅管理
         st.markdown(f"#### {t['set_sub']}")
         if st.session_state.is_subscribed:
             st.success("👑 VIP Member Active")
@@ -242,7 +261,7 @@ st.divider()
 
 
 # ==========================================
-# 6. 首页顶部：订阅卡片（未订阅时立刻显示，点击后消失）
+# 7. 首页顶部：订阅卡片
 # ==========================================
 if not st.session_state.is_subscribed or st.session_state.show_sub_in_settings:
     st.markdown(f"### {t['sub_title']}")
@@ -331,9 +350,11 @@ if st.session_state.sub_msg:
 
 
 # ==========================================
-# 7. 用户档案区
+# 8. 用户档案区（自动计算 BMI）
 # ==========================================
 info = st.session_state.health_info
+bmi_val, bmi_category = calculate_bmi(info["height"], info["weight"])
+
 if not info["nickname"]:
     st.header(t["fill_profile_title"])
     st.caption(t["fill_profile_desc"])
@@ -364,21 +385,36 @@ if not info["nickname"]:
     st.divider()
 else:
     st.subheader(f"{t['hi_msg']}{info['nickname']}")
-    st.caption(t["profile_caption"].format(h=info['height'], w=info['weight'], c=info['conditions'] or '健康无特殊人群标识'))
+    st.caption(t["profile_caption"].format(
+        h=info['height'],
+        w=info['weight'],
+        bmi=bmi_val,
+        bmi_cat=bmi_category,
+        c=info['conditions'] or '健康无特殊人群标识'
+    ))
     st.divider()
 
 
 # ==========================================
-# 8. 核心功能一：📸 记录你的美食 (动态剔除已完成餐次)
+# 9. 核心功能一：📸 记录你的美食（按日期隔离与多天历史记录）
 # ==========================================
 st.subheader(t["section_food"])
 
+# 9.1 新增：日期选择器，支持切换任意历史日期或今天
+log_date_obj = st.date_input(t["select_date"], value=date.today())
+current_date_str = log_date_obj.strftime("%Y-%m-%d")
+
+# 获取选定日期的餐盘数据结构
+if current_date_str not in st.session_state.daily_meal_records:
+    st.session_state.daily_meal_records[current_date_str] = {}
+
+current_day_records = st.session_state.daily_meal_records[current_date_str]
+
 all_meals = ["早餐", "午餐", "晚餐"]
-# 过滤出尚未记录的餐次
-available_meals = [m for m in all_meals if m not in st.session_state.meal_records]
+available_meals = [m for m in all_meals if m not in current_day_records]
 
 if not available_meals:
-    st.success("🎉 今日早餐、午餐、晚餐均已全部拍照记录完毕！")
+    st.success(f"🎉【{current_date_str}】的早餐、午餐、晚餐已全部记录完毕！你可以切换其他日期继续记录。")
 else:
     meal_col, photo_col = st.columns(2)
     with meal_col:
@@ -392,12 +428,12 @@ else:
     )
 
     if photo_option == t["cam"]:
-        uploaded_file = st.camera_input("Take Photo", key=f"cam_{selected_meal}")
+        uploaded_file = st.camera_input("Take Photo", key=f"cam_{current_date_str}_{selected_meal}")
     else:
-        uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"], key=f"file_{selected_meal}")
+        uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"], key=f"file_{current_date_str}_{selected_meal}")
 
     if uploaded_file is not None:
-        st.image(uploaded_file, caption=f"待分析餐盘（{selected_meal}）", use_container_width=True)
+        st.image(uploaded_file, caption=f"待分析餐盘（{current_date_str} {selected_meal}）", use_container_width=True)
         
         if st.button(t["analyze_btn"], type="primary", use_container_width=True):
             if not st.session_state.is_subscribed:
@@ -405,7 +441,7 @@ else:
             elif not api_key:
                 st.error("❌ 未读取到 API Key！请检查 Secrets 或 .env 配置。")
             else:
-                with st.spinner("AI 正在根据你的健康状况深度分析餐盘..."):
+                with st.spinner("AI 正在深度计算 BMI、升糖指数 (GI) 与具体健康建议..."):
                     try:
                         client = OpenAI(
                             api_key=api_key,
@@ -419,21 +455,28 @@ else:
                             f"昵称：{info['nickname']}，"
                             f"身高：{info['height']}cm，"
                             f"体重：{info['weight']}kg，"
-                            f"健康状况/人群属性：【{info['conditions'] or '无特殊'}】"
+                            f"BMI：{bmi_val} ({bmi_category})，"
+                            f"特殊人群/疾病状况：【{info['conditions'] or '无'}】"
                         )
                         
-                        # 强约束 AI 针对人群特征给出超级具体的落地建议（去冰、去糖、少盐等）
-                        prompt_text = f"""你是一个高度定制化的专业膳食规划师。请使用【{st.session_state.language}】回复。
-用户的个人健康档案：【{user_context}】
-本次分析的餐食分类为：【{selected_meal}】\n用户输入的补充说明：{input_food_name}
+                        lang_instruction = "Please reply strictly in English." if st.session_state.language == "English" else f"请严格使用【{st.session_state.language}】进行回复。"
 
-请严格按以下要求输出：
-1. 识别食物名称与大概分量；
-2. 强制输出 Markdown 格式【营养成分分析表格】：
+                        prompt_text = f"""你是一个高度专业的临床营养师与血糖管理专家。{lang_instruction}
+
+用户的健康档案：【{user_context}】
+记录日期与餐次：【{current_date_str} - {selected_meal}】\n用户补充说明：{input_food_name}
+
+请严格按以下四部分输出分析报告：
+1. **食物识别**：列出识别出的主要食材及预估分量。
+2. **营养成分分析表**（强制使用 Markdown 表格）：
    | 营养成分 | 预估含量 | 健康评估 |
-   （包含：热量(千卡)、碳水化合物(克)、蛋白质(克)、脂肪(克)、膳食纤维(克)）；
-3. **【核心要求：极其具体的个性化调整建议】**：
-   必须严格结合用户的健康状况/人群属性【{info['conditions']}】给出极其明确、具体的吃法调整（例如：如果是孕妇必须提醒“饮料去冰/忌生冷”；如果是糖尿病必须明确提示“走糖/换无糖版/减少精米白面”；如果是高血压提醒“汤底少喝/减盐”等）。绝对不能泛泛而谈！"""
+   （必须包含：热量(千卡)、碳水化合物(克)、蛋白质(克)、脂肪(克)、膳食纤维(克)）
+3. **📊 BMI 与 GI (升糖指数) 专项评估**：
+   - **BMI 适配分析**：结合用户当前 BMI ({bmi_val}, {bmi_category})，评估本餐热量与脂肪摄入是否合适。
+   - **餐食 GI 评估**：分析本餐主要碳水属于【高 GI / 中 GI / 低 GI】，预估对餐后血糖升高的冲击程度。
+4. **💡 极其具体的个性化膳食调整方案**：
+   - **结合特殊人群【{info['conditions']}】**：必须给出具体的落地方案（如：孕妇去冰去生食、糖尿病走糖换无糖、高血压少盐不喝汤底等）。
+   - **平稳血糖法**：给出改变进食顺序或搭配建议。"""
 
                         response = client.chat.completions.create(
                             model="glm-4v-flash",
@@ -454,26 +497,26 @@ else:
                         
                         analysis_result = response.choices[0].message.content
 
-                        # 将分析结果记入 Session，并自动刷新界面
-                        st.session_state.meal_records[selected_meal] = analysis_result
-                        st.success(f"🎉 {selected_meal}分析成功并已存入今日记录！")
+                        # 将记录永久按日期保存入字典
+                        st.session_state.daily_meal_records[current_date_str][selected_meal] = analysis_result
+                        st.success(f"🎉 【{current_date_str} {selected_meal}】分析成功并已存档！")
                         st.rerun()
                         
                     except Exception as e:
                         st.error(f"❌ 分析失败: {e}")
 
-# 展示今日已记录的餐盘列表
-if st.session_state.meal_records:
-    st.markdown("#### 📋 今日已记录的餐盘报告")
-    for m_name, m_report in st.session_state.meal_records.items():
-        with st.expander(f"📌 {m_name}分析报告 (点击展开/折叠)", expanded=True):
+# 展示选定日期的已记录餐盘
+if current_day_records:
+    st.markdown(f"#### 📋 【{current_date_str}】的餐盘记录列表")
+    for m_name, m_report in current_day_records.items():
+        with st.expander(f"📌 {current_date_str} - {m_name}分析报告 (点击展开/折叠)", expanded=True):
             st.markdown(m_report)
 
 st.divider()
 
 
 # ==========================================
-# 9. 核心功能二：📅 制定你的专属健康饮食计划（目标导向）
+# 10. 核心功能二：📅 制定你的专属健康饮食计划
 # ==========================================
 st.subheader(t["section_plan"])
 
@@ -496,16 +539,16 @@ st.divider()
 
 
 # ==========================================
-# 10. 核心功能三：📝 每日健康总结与计划推进分析
+# 11. 核心功能三：📝 每日健康总结与计划推进分析
 # ==========================================
 st.subheader(t["section_summary"])
-st.caption("AI 将调取你今日已记录的餐盘报告，对比你的核心健康目标，生成今日总结与漏餐提示。")
+st.caption(f"AI 将调取【{current_date_str}】已记录的餐盘数据，对比你的 BMI 和核心目标生成针对性评估。")
 
 if st.button(t["gen_summary_btn"], type="primary", use_container_width=True):
     if not api_key:
         st.error("❌ 未读取到 API Key！")
     else:
-        with st.spinner("AI 正在计算今日饮食对健康目标的推进评估..."):
+        with st.spinner(f"AI 正在计算【{current_date_str}】的饮食对目标的推进评估..."):
             try:
                 client = OpenAI(
                     api_key=api_key,
@@ -513,9 +556,8 @@ if st.button(t["gen_summary_btn"], type="primary", use_container_width=True):
                 )
                 
                 user_info = st.session_state.health_info
-                records = st.session_state.meal_records
+                records = st.session_state.daily_meal_records.get(current_date_str, {})
                 
-                # 判断漏餐情况
                 recorded_meals = list(records.keys())
                 missing_meals = [m for m in ["早餐", "午餐", "晚餐"] if m not in recorded_meals]
                 
@@ -524,19 +566,23 @@ if st.button(t["gen_summary_btn"], type="primary", use_container_width=True):
                     if m in records:
                         records_text += f"\n--- 【{m}记录】 ---\n" + records[m]
                     else:
-                        records_text += f"\n--- 【{m}记录】 ---\n（用户今日未记录/未吃{m}）"
+                        records_text += f"\n--- 【{m}记录】 ---\n（用户本日未记录/未吃{m}）"
 
-                summary_prompt = f"""你是一个高级健康管理专家。请使用【{st.session_state.language}】撰写。
-【用户档案】：昵称{user_info['nickname']}，身高{user_info['height']}cm，体重{user_info['weight']}kg，健康状况/特殊人群标记：【{user_info['conditions'] or '无'}】。
+                lang_instruction = "Please reply strictly in English." if st.session_state.language == "English" else f"请严格使用【{st.session_state.language}】撰写。"
+
+                summary_prompt = f"""你是一个高级临床健康管理专家。{lang_instruction}
+
+【用户档案】：昵称{user_info['nickname']}，身高{user_info['height']}cm，体重{user_info['weight']}kg，BMI: {bmi_val} ({bmi_category})，健康状况/特殊人群标记：【{user_info['conditions'] or '无'}】。
 【当前计划周期目标】：【{st.session_state.health_goal}】。
+【评估日期】：【{current_date_str}】。
 
-【用户今日实际摄入与记录】：
+【用户该日实际摄入与记录】：
 {records_text}
 
-请对用户今日的健康饮食进行全方位评估：
-1. **计划推进评估**：结合用户设置的目标【{st.session_state.health_goal}】，评估今日吃的食物是对目标有促进作用，还是阻碍了目标的推进？
-2. **缺漏/未吃餐次警示**：如果发现用户漏吃了餐次（未记录的餐次：{', '.join(missing_meals) if missing_meals else '无'}），请严肃且关怀地指出不吃{', '.join(missing_meals)}对用户【{user_info['conditions']}】状况的健康危害！
-3. **精准改进方案**：针对明日的早餐、午餐、晚餐，给出具体的食物搭配建议，帮助用户更好地推进【{st.session_state.health_goal}】目标。"""
+请对用户【{current_date_str}】的健康饮食进行全方位评估：
+1. **目标推进与 BMI 匹配评估**：结合用户 BMI ({bmi_val}) 和目标【{st.session_state.health_goal}】，评估这天吃的食物对目标的推进效果。
+2. **缺漏餐次与健康危害**：如果发现用户在该日漏吃了餐次（未记录：{', '.join(missing_meals) if missing_meals else '无'}），请严肃且关怀地指出不吃{', '.join(missing_meals)}对【{user_info['conditions']}】状况的具体健康危害！
+3. **明日食谱改进方案**：针对明日三餐，给出具体的低 GI、营养均衡的食谱搭配建议。"""
 
                 summary_res = client.chat.completions.create(
                     model="glm-4v-flash",
@@ -544,7 +590,7 @@ if st.button(t["gen_summary_btn"], type="primary", use_container_width=True):
                     max_tokens=1000
                 )
                 
-                st.success("🎉 今日计划推进总结生成成功！")
+                st.success(f"🎉 【{current_date_str}】计划推进总结生成成功！")
                 st.markdown("---")
                 st.markdown(summary_res.choices[0].message.content)
                 
